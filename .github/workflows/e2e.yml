@@ -25,5 +25,9 @@ jobs:
         run: |
           pip install -r requirements/requirements-dev.txt
           modal token set --token-id $MODAL_TOKEN_ID --token-secret $MODAL_TOKEN_SECRET
-          modal serve -m src.app &
+          modal serve -m src.app > /tmp/modal_serve.log 2>&1 &
+          # Wait for the dev endpoint to be registered before starting the test.
+          # Without this, the test races modal-serve registration and the WS
+          # handshake can return 404.
+          timeout 120 bash -c 'until grep -q "Serving" /tmp/modal_serve.log 2>/dev/null; do sleep 1; done'
           python tests/e2e_test.py

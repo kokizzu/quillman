@@ -12,20 +12,26 @@ endpoint = "wss://modal-labs--quillman-moshi-web-dev.modal.run/"
 
 shutdown_flag = asyncio.Event()
 
-WARMUP_TIMEOUT = 60 # give server 60 seconds to warm up
+WARMUP_TIMEOUT = 180 # cold boot can include HF download + GPU warmup
 async def ensure_server_ready():
+    # Probe the websocket route directly — that's what the test actually needs,
+    # and during dev-function (re)registration GET /status can return 200 even
+    # while a WS upgrade to /ws still 404s.
     deadline = time.time() + WARMUP_TIMEOUT
-    async with aiohttp.ClientSession() as session:
-        while time.time() < deadline:
-            try:
-                print("Checking server status...")
-                resp = await session.get(endpoint + "status")
-                if resp.status == 200:
+    while time.time() < deadline:
+        try:
+            print("Probing server with ws_connect...")
+            async with aiohttp.ClientSession() as session:
+                async with session.ws_connect(
+                    endpoint + "ws",
+                    timeout=aiohttp.ClientTimeout(total=60),
+                ):
+                    print("Server ready.")
                     return
-            except Exception as e:
-                print("Error while checking server status:", e)
-                await asyncio.sleep(5)
-                pass
+        except Exception as e:
+            print("Server not ready yet:", e)
+            await asyncio.sleep(5)
+    raise RuntimeError(f"Server did not become ready within {WARMUP_TIMEOUT}s")
 
 async def run():
     await ensure_server_ready()
