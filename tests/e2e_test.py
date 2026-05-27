@@ -14,9 +14,6 @@ shutdown_flag = asyncio.Event()
 
 WARMUP_TIMEOUT = 180 # cold boot can include HF download + GPU warmup
 async def ensure_server_ready():
-    # Probe the websocket route directly — that's what the test actually needs,
-    # and during dev-function (re)registration GET /status can return 200 even
-    # while a WS upgrade to /ws still 404s.
     deadline = time.time() + WARMUP_TIMEOUT
     while time.time() < deadline:
         try:
