@@ -25,5 +25,7 @@ jobs:
         run: |
           pip install -r requirements/requirements-dev.txt
           modal token set --token-id $MODAL_TOKEN_ID --token-secret $MODAL_TOKEN_SECRET
-          modal serve -m src.app &
+          modal serve -m src.app 2>&1 | tee /tmp/modal_serve.log &
+          # Wait for the server to be ready before starting the test
+          timeout 120 bash -c 'until grep -q "Serving" /tmp/modal_serve.log 2>/dev/null; do sleep 1; done'
           python tests/e2e_test.py
